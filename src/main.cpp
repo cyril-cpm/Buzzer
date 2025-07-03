@@ -24,11 +24,31 @@ STR_UInt8 r(0, "RED");
 STR_UInt8 g(0, "GREEN");
 STR_UInt8 b(255, "BLUE");
 
-char label[4] = { 'N', 'U', 'L', '\0'};
+#define STAR_WARS   1
+#define DISNEY      2
+#define LEGO        3
+#define MARVEL      4
+#define HARRY_POTTER    5
+#define X_MEN       6
+#define DBZ         7
+#define MARIO       8
+
+STR_UInt8 team(0, "TEAM");
 
 void setup() {
+    b = 255;
     prefs.begin("buzzer");
-    prefs.getString("LBL", label, 3);
+    team = prefs.getUInt("TEAM", 0);
+
+    team.SetCallback([](){
+        prefs.putUInt("TEAM", team);
+        r =255;
+    });
+
+    STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "Update Team", [](){
+        prefs.putUInt("TEAM", team);
+        r =255;
+    });
 
     Serial.begin(115200);
     
