@@ -1,81 +1,85 @@
-#include <Arduino.h>
 #include "Settingator.h"
-#include "CustomType.hpp"
+#include "LedModule.h"
 #include "ESPNowCommunicator.h"
-#include "FastLED.h"
-#include "Preferences.h"
+#include "CustomType.hpp"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 
-Preferences prefs;
 
-#define LED_PIN         4
+#define LED_PIN         GPIO_NUM_4
 #define NUM_LEDS        31
 
-CRGB leds[NUM_LEDS];
-
-#define BUTTON_PIN      22
+#define BUTTON_PIN      GPIO_NUM_22
 
 Settingator STR(nullptr);
+
+bool buttonPressed = false;
+
+STR_UInt8 r(255, "RED");
+STR_UInt8 g(0, "GREEN");
+STR_UInt8 b(0, "BLUE");
 
 #define BROADCAST_BTN_PIN   32
 
 #define BUTTON_NOTIF       5
 
-STR_UInt8 r(0, "RED");
-STR_UInt8 g(0, "GREEN");
-STR_UInt8 b(255, "BLUE");
+#define DEBOUNCE_TIME_MS 250
 
-#define STAR_WARS   1
-#define DISNEY      2
-#define LEGO        3
-#define MARVEL      4
-#define HARRY_POTTER    5
-#define X_MEN       6
-#define DBZ         7
-#define MARIO       8
+esp_timer_handle_t debounceTimerButton;
 
-STR_UInt8 team(0, "TEAM");
-
-void setup() {
-    b = 255;
-    prefs.begin("buzzer");
-    team = prefs.getUInt("TEAM", 0);
-
-    team.SetCallback([](){
-        prefs.putUInt("TEAM", team);
-        r =255;
-    });
-
-    STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "Update Team", [](){
-        prefs.putUInt("TEAM", team);
-        r =255;
-    });
-
-    Serial.begin(115200);
-    
-    espNowCore = ESPNowCore::CreateInstance();
-    if (espNowCore)
-        espNowCore->BroadcastPing(); 
-
-    STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "UPDATE_LED", [](){
-        for (auto i =0; i < NUM_LEDS; i++)
-        leds[i] = CRGB(r, g , b);
-    });
-
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    attachInterrupt(BUTTON_PIN, [](){STR.SendNotif(BUTTON_NOTIF);}, RISING);
-
-    FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
-
-    pinMode(BROADCAST_BTN_PIN, INPUT_PULLDOWN);
-    attachInterrupt(BROADCAST_BTN_PIN, [](){espNowCore->BroadcastPing(); Serial.println("Broad");}, RISING); 
-
-    for (auto i =0; i < NUM_LEDS; i++)
-        leds[i] = CRGB(r, g , b);
-
+void debounceTimerButtonCallback(void*)
+{
+    gpio_intr_enable(BUTTON_PIN);
 }
 
-void loop() {
-    
-    FastLED.show();
-    STR.Update();
+static void IRAM_ATTR buttonInterruptHandler(void* arg)
+{
+    gpio_intr_disable(BUTTON_PIN);
+
+    esp_timer_start_once(debounceTimerButton, DEBOUNCE_TIME_MS * 1000);
+    STR.ESPNowBroadcastPing();
+}
+
+extern "C" void app_main()
+{
+    STR.begin();
+
+    LedModule module(LED_PIN, NUM_LEDS);
+
+    auto zoneA = module.AddBackColorZone(0, NUM_LEDS, RGB(r, g, b), "A");
+
+    ESPNowCore::CreateInstance()->BroadcastPing();
+
+    // TIMER //
+    esp_timer_create_args_t timer_args = {
+        .callback = debounceTimerButtonCallback,
+        .name = "debounce_timer_broadcast"
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &debounceTimerButton));
+
+    // GPIO CONFIG //
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = 1ULL << BUTTON_PIN;
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
+
+
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
+    ESP_ERROR_CHECK(gpio_isr_handler_add(BUTTON_PIN, buttonInterruptHandler, (void*)BUTTON_PIN));
+    ESP_ERROR_CHECK(gpio_set_intr_type(BUTTON_PIN, GPIO_INTR_POSEDGE));
+
+    while (true)
+    {
+        STR.Update();
+
+        if (buttonPressed)
+        {
+            buttonPressed = false;
+            STR.SendNotif(0x05);
+        }
+    }
 }
