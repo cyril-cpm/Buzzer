@@ -9,4 +9,4 @@ sdkconfig*
 .smart_pio
 .clangd
 build
-
+components/Settingator
