@@ -31,7 +31,9 @@ static void IRAM_ATTR buttonInterruptHandler(void* arg)
 
 Settingator& STR = Settingator::GetInstance();
 
-STR_UInt8 r(255, "RED"); 			
+STR_UInt8 r(0, "RED"); 			
+STR_UInt8 g(0, "GREEN");
+STR_UInt8 b(0, "BLUE");
 
 Led& LED = Led::GetInstance();
 
@@ -63,21 +65,22 @@ extern "C" void app_main(void)
 	STR.begin();
 	STR.ESPNowBroadcastPing();
 
-	auto& data = LED.Strip2();
+	STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "UPDATE_LED", []() {
+				ESP_LOGI("MAIN", "UPDATE_LED");
+				auto& data = LED.Strip2();
 
-	uint8_t i = 0;
-	for (auto& rgb : data)
-	{
-		rgb.r = 255 - i;
-		rgb.g = i;
-		rgb.b = 127 + i;
-		i += 255/31;
-	}
+				for (auto& rgb : data)
+				{
+					rgb.r = r;
+					rgb.b = b;
+					rgb.g = g;
+				}
+				LED.Show();
+			});
 
 	while (true)
 	{
 		STR.Update();
-		LED.Show();
 		if (buttonPressed)
 		{
 			buttonPressed = false;
