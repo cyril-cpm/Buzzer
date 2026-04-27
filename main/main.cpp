@@ -1,5 +1,6 @@
 #include "Settingator.h"
 #include "STR.h"
+#include "Led.h"
 #include "CustomType.hpp"
 
 #include "driver/gpio.h"
@@ -32,6 +33,8 @@ Settingator& STR = Settingator::GetInstance();
 
 STR_UInt8 r(255, "RED"); 			
 
+Led& LED = Led::GetInstance();
+
 extern "C" void app_main(void)
 {
 	// TIMER //
@@ -60,9 +63,21 @@ extern "C" void app_main(void)
 	STR.begin();
 	STR.ESPNowBroadcastPing();
 
+	auto& data = LED.Strip2();
+
+	uint8_t i = 0;
+	for (auto& rgb : data)
+	{
+		rgb.r = 255 - i;
+		rgb.g = i;
+		rgb.b = 127 + i;
+		i += 255/31;
+	}
+
 	while (true)
 	{
 		STR.Update();
+		LED.Show();
 		if (buttonPressed)
 		{
 			buttonPressed = false;
