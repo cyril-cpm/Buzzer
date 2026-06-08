@@ -1,6 +1,3 @@
-[submodule "SettingatorLib"]
-	path = SettingatorLib
-	url = git@github.com:cyril-cpm/SettingatorLib
 [submodule "components/Settingator"]
 	path = components/Settingator
 	url = git@github.com:cyril-cpm/SettingatorLib

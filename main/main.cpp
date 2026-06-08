@@ -31,9 +31,7 @@ static void IRAM_ATTR buttonInterruptHandler(void* arg)
 
 Settingator& STR = Settingator::GetInstance();
 
-STR_UInt8 r(0, "RED"); 			
-STR_UInt8 g(0, "GREEN");
-STR_UInt8 b(0, "BLUE");
+STR_UInt32 ledColor(0x00000000, "__RGB");
 
 Led& LED = Led::GetInstance();
 
@@ -58,25 +56,42 @@ extern "C" void app_main(void)
 
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
-    ESP_ERROR_CHECK(gpio_isr_handler_add(BUTTON_PIN, buttonInterruptHandler, (void*)BUTTON_PIN));
+    ESP_ERROR_CHECK(
+			gpio_isr_handler_add(BUTTON_PIN, buttonInterruptHandler, (void*)BUTTON_PIN)
+		);
     ESP_ERROR_CHECK(gpio_set_intr_type(BUTTON_PIN, GPIO_INTR_NEGEDGE));
 	
 	InitCores();
 	STR.begin();
-	STR.ESPNowBroadcastPing();
 
-	STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "UPDATE_LED", []() {
-				ESP_LOGI("MAIN", "UPDATE_LED");
+	ledColor.SetCallback([]() {
 				auto& data = LED.Strip2();
 
+				uint8_t r = (ledColor & 0x00FF0000) >> 16;
+				uint8_t g = (ledColor & 0x0000FF00) >> 8;
+				uint8_t b = ledColor & 0x000000FF;
+				
 				for (auto& rgb : data)
 				{
 					rgb.r = r;
-					rgb.b = b;
 					rgb.g = g;
+					rgb.b = b;
 				}
 				LED.Show();
-			});
+			}
+		);
+
+	// STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "UPDATE_LED", []() {
+	// 			auto& data = LED.Strip2();
+	//
+	// 			for (auto& rgb : data)
+	// 			{
+	// 				rgb.r = r;
+	// 				rgb.b = b;
+	// 				rgb.g = g;
+	// 			}
+	// 			LED.Show();
+	// 		});
 
 	while (true)
 	{
