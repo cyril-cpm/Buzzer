@@ -81,18 +81,6 @@ extern "C" void app_main(void)
 			}
 		);
 
-	// STR.AddSetting(Setting::Type::Trigger, nullptr, 0, "UPDATE_LED", []() {
-	// 			auto& data = LED.Strip2();
-	//
-	// 			for (auto& rgb : data)
-	// 			{
-	// 				rgb.r = r;
-	// 				rgb.b = b;
-	// 				rgb.g = g;
-	// 			}
-	// 			LED.Show();
-	// 		});
-
 	while (true)
 	{
 		STR.Update();
